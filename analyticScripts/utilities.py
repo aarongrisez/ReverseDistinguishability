@@ -1,6 +1,7 @@
 import sympy
 import sympy.abc
 import numpy as np
+from sympy.physics.quantum import TensorProduct
 
 """
 Symbolically Calculates tr(x^t*y^(1-t)) in integral representation without performing the actual integral
@@ -34,11 +35,11 @@ def testQubit(r1=None, r2=None, theta=None):
         r2 = sympy.Symbol("r_2")
     if theta == None:
         theta_sym = sympy.abc.theta
-    A, B = setUpQubit(r1, r2, theta_sym)
+    A, B = setUp2Qubits(r1, r2, theta_sym)
     trace = CBexp(A,B)
     return trace
 
-def setUpQubit(r1, r2, theta):
+def setUp2Qubits(r1, r2, theta):
     """
     Returns density matrix representations of the two qubit states
     """
@@ -96,3 +97,30 @@ def thetaFourier(a, b):
     transform = np.fft.fft(b)
     freq = np.fft.fftfreq(a.shape[-1])
     return (transform, freq)
+
+def setUp3Qudits(d):
+    """
+    Returns 3 density matrices as SymPy matrices
+    Currently hardcoded for qubits, need to think about how to do d>2
+    """
+    rho = [] #List of density matrices
+    for i in range(3):
+        char_num = 97 + i
+        rho.append(sympy.Matrix(sympy.MatrixSymbol(chr(char_num), d, d)))
+    return rho
+
+def setUpPOVMElements(d):
+    """
+    Returns 2 positive operators that correspond to Qudit systems
+    """
+    return [sympy.Matrix(sympy.MatrixSymbol('e', d, d)), sympy.Matrix(sympy.MatrixSymbol('f', d, d))]
+
+def setUpTripartiteSystem(d):
+    """
+    Builds desired tripartite system of 3 qudits
+    """
+    rho = setUp3Qudits(d)
+    POVM = setUpPOVMElements(d)
+    tau = TensorProduct(rho[0], rho[1], rho[2])
+    M = TensorProduct(POVM[0], POVM[1], sympy.eye(d,d))
+    return (M * tau).trace()
