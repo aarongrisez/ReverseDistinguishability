@@ -1,5 +1,6 @@
 import sympy
 import sympy.abc
+import numpy as np
 
 """
 Symbolically Calculates tr(x^t*y^(1-t)) in integral representation without performing the actual integral
@@ -44,3 +45,54 @@ def setUpQubit(r1, r2, theta):
     A = sympy.Rational(1 / 2) * sympy.Matrix([[1 + r1, 0], [0, 1 - r1]])
     B = sympy.Rational(1 / 2) * sympy.Matrix([[1 + r1 * sympy.sin(theta), r2 * sympy.cos(theta)],[r2 * sympy.cos(theta), 1 - r2 * sympy.sin(theta)]])
     return (A, B)
+
+def qChernoffInformation(r1, r2, theta, s):
+    """
+    Returns non-logarithmic, unminimized variety of q. chernoff info as derived by Calsamiglia et al
+
+    Can be done ussympy.integrate(integrand, (t, 0, sympy.oo))ing SymPy if arguments are passed as symbols
+    """
+    lambda_0 = (1 + r1) / 2
+    lambda_1 = (1 + r2) / 2
+    return ((lambda_0 ** s * lambda_1 ** (1 - s) +
+            (1 - lambda_0) ** s * (1 - lambda_1) ** (1 - s)) * (sympy.cos(theta)) ** 2 +
+            (lambda_0 ** s * (1 - lambda_1) ** (1 - s) +
+            (1 - lambda_0) ** s * lambda_1 ** (1 - s)) * (sympy.sin(theta)) ** 2)
+
+def sDerivQChernoffInformation(r1=sympy.Symbol('r_1'), r2=sympy.Symbol('r_2'), theta=sympy.abc.theta, asUfunc = False):
+    """
+    Zeroth, first and second derivative expressions w.r.t. s of qChernoffInformation symbolically
+    """
+    s = sympy.Symbol('s')
+    info = qChernoffInformation(r1, r2, theta, s)
+    first = info.diff(s)
+    second = first.diff(s)
+    if asUfunc == False:
+        return [info, first, second] #Option to return SymPy Expressions
+    if asUfunc == True:
+        from sympy.utilities.autowrap import ufuncify
+        return [ufuncify([r1, r2, theta, s], info), ufuncify([r1, r2, theta, s], first), ufuncify([r1, r2, theta, s], second)]
+
+def scanFixedR1R2(ufunc, r1, r2, theta_steps=10, s_steps=1E4):
+    """
+    Takes ufunc and fixed values of r1 and r2 to scan the theta parameter 
+    """
+    svals = np.linspace(0, 1, s_steps)
+    tvals = np.linspace(0, 180, theta_steps) #Theta values in degrees
+    qc_info = np.zeros((int(theta_steps), 3))
+    for i in range(theta_steps):
+        temp = ufunc(r1, r2, tvals[i], svals)
+        loc = temp.argmin() #Stores the position of the minimum value of s
+        val = temp[loc]
+        qc_info[i,0] = (i / theta_steps) * 360
+        qc_info[i,1] = loc / s_steps
+        qc_info[i,2] = val
+    return qc_info #Return form: [(theta, s, Q_min), ...]
+
+def thetaFourier(a, b):
+    """
+    with a as theta values and b as either s values or Q values, calculate the fft with periodicity in theta
+    """
+    transform = np.fft.fft(b)
+    freq = np.fft.fftfreq(a.shape[-1])
+    return (transform, freq)
