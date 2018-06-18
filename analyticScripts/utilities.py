@@ -1,6 +1,8 @@
 import sympy
 import sympy.abc
 import numpy as np
+import numba as nb
+from scipy.linalg import sqrtm, inv, logm, expm
 from sympy.physics.quantum import TensorProduct
 
 """
@@ -39,13 +41,53 @@ def testQubit(r1=None, r2=None, theta=None):
     trace = CBexp(A,B)
     return trace
 
-def setUp2Qubits(r1, r2, theta):
+def setUp2QubitsSymbol(r1, r2, theta):
     """
-    Returns density matrix representations of the two qubit states
+    Returns density matrix representations of the two qubit states as sympy matrices
     """
     A = sympy.Rational(1 / 2) * sympy.Matrix([[1 + r1, 0], [0, 1 - r1]])
-    B = sympy.Rational(1 / 2) * sympy.Matrix([[1 + r1 * sympy.sin(theta), r2 * sympy.cos(theta)],[r2 * sympy.cos(theta), 1 - r2 * sympy.sin(theta)]])
+    B = sympy.Rational(1 / 2) * sympy.Matrix([[1 + r1 * sympy.sin(theta * np.pi / 360), r2 * sympy.cos(theta)],[r2 * sympy.cos(theta * np.pi / 360), 1 - r2 * sympy.sin(theta * np.pi / 360)]])
     return (A, B)
+
+@nb.jit
+def setUp2Qubits(r1, r2, theta):
+    A = 1 / 2 * np.matrix([[1 + r1, 0], [0, 1 - r1]])
+    B = 1 / 2 * np.matrix([[1 + r1 * np.sin(theta * np.pi / 360), r2 * np.cos(theta * np.pi / 360)],[r2 * np.cos(theta * np.pi / 360), 1 - r1 * np.sin(theta * np.pi / 360)]])
+    return (A, B)
+
+@nb.jit
+def setUpN2QubitSystems(n, r1, r2, theta):
+    """
+    Creates density matrices for N copy pairs of qubits
+    """
+    A_not, B_not = setUp2Qubits(r1, r2, theta)
+    A = A_not
+    B = B_not
+    if n != 1:
+        for i in range(n):
+            A = np.kron(A, A_not)
+            B = np.kron(B, B_not)
+
+    return (A, B)
+
+@nb.jit
+def compareMatsumotoLeifer(systems, r1, r2, theta_min=1.0E-30, theta_max=360, steps=1000):
+    """
+    Scans theta parameter and returns the Leifer and Matsumoto reverse fidelities for the two states
+
+    r1 - Radius of first qubit
+    r2 - Radius of second qubit
+    systems - Number of copies of qubit systems
+    """
+    tvals = np.linspace(theta_min, theta_max, steps)
+    matsumoto = np.zeros(steps)
+    leifer = np.zeros(steps)
+    for (i, j) in enumerate(tvals):
+        states = setUpN2QubitSystems(systems, r1, r2, j)
+        matsumoto[i] = matsumotoReverseFidelity(states[0],states[1])
+        leifer[i] = leiferReverseFidelity(states[0],states[1])
+    return (matsumoto, leifer)
+
 
 def qChernoffInformation(r1, r2, theta, s):
     """
@@ -98,28 +140,55 @@ def thetaFourier(a, b):
     freq = np.fft.fftfreq(a.shape[-1])
     return (transform, freq)
 
-def setUp3Qudits(d):
+def setUpNQudits(n, d):
     """
-    Returns 3 density matrices as SymPy matrices
-    Currently hardcoded for qubits, need to think about how to do d>2
+    Returns n density matrices as SymPy matrices and their traces (which must be normalized)
     """
     rho = [] #List of density matrices
-    for i in range(3):
-        char_num = 97 + i
-        rho.append(sympy.Matrix(sympy.MatrixSymbol(chr(char_num), d, d)))
+    for i in range(n):
+        char_num = 97 + i 
+        density_matrix = sympy.Matrix(sympy.MatrixSymbol(chr(char_num), d, d))
+        trace = density_matrix.trace()
+        rho.append(density_matrix) 
     return rho
+
+@nb.jit
+def matsumotoReverseFidelity(rho, sigma):
+    """
+    Returns Matsumoto's value for reverse fidelity, trace(rho*sqrt(rho**-1/2*sigma*rho**-1/2))
+    """
+    a = np.matrix(rho)
+    b = np.matrix(sigma)
+    c = np.matmul(inv(sqrtm(a)), b) #c = rho**(-1/2)*sigma
+    d = np.matmul(c, inv(sqrtm(a))) #d = c*rho**(-1/2)
+    e = np.matmul(a, sqrtm(d)) #e = a * sqrt(d)
+    return np.trace(e)
+
+@nb.jit
+def leiferReverseFidelity(rho, sigma):
+    """
+    Returns Leifer's value for reverse fidelity, trace(exp(1/2 * (log(rho) + log(sigma))))
+    """
+    a = np.matrix(rho)
+    b = np.matrix(sigma)
+    c = logm(a)
+    d = logm(b)
+    e = expm(1/2 * (c + d))
+    return np.trace(e)
 
 def setUpPOVMElements(d):
     """
-    Returns 2 positive operators that correspond to Qudit systems
+    Returns 2 positive operators that correspond to Qudit systems and trace constraints on each
     """
-    return [sympy.Matrix(sympy.MatrixSymbol('e', d, d)), sympy.Matrix(sympy.MatrixSymbol('f', d, d))]
+    e = sympy.Matrix(sympy.MatrixSymbol('e', d, d))
+    f = sympy.Matrix(sympy.MatrixSymbol('f', d, d))
+    return (e, f)
 
 def setUpTripartiteSystem(d):
     """
     Builds desired tripartite system of 3 qudits
     """
-    rho = setUp3Qudits(d)
+    rho = setUpNQudits(3, d)
     POVM = setUpPOVMElements(d)
     tau = TensorProduct(rho[0], rho[1], rho[2])
     M = TensorProduct(POVM[0], POVM[1], sympy.eye(d,d))
