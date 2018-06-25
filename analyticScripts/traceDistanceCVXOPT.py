@@ -2,10 +2,8 @@ import cvxpy as cvx
 import numpy as np
 import utilities
 import numba as nb
-import matplotlib.pyplot as plt
 import psutil
 import time
-
 
 @nb.jit
 def optimize(n, r1, r2, theta):
@@ -54,20 +52,6 @@ def mSequenceOptimizeLog(m, r1, r2, theta):
         sequence[i-1] = -np.log(optimize(i, r1, r2, theta)) / i
     return sequence
 
-def plotMSequenceOptimize(m, r1, r2, theta, log=False):
-    """
-    For a given qubit pair, plot mSequence
-    """
-    n_vals = [i for i in range(1, m)]
-    if log == False:
-        sequence = mSequenceOptimize(m, r1, r2, theta)
-    else:
-        sequence = mSequenceOptimizeLog(m, r1, r2, theta)
-        #This next line makes the assumption that r1=r2 to give minimum value of s for QCB
-        qcb = utilities.qChernoffInformation(r1, r2, theta, 1/2)
-        plt.hlines(qcb, 0, m+.5)
-    plt.scatter(n_vals, sequence, c='black', s=.6)
-
 @nb.jit
 def scanThetaOptimize(max_systems, r1, r2, theta_min, theta_max, steps):
     """
@@ -82,12 +66,3 @@ def scanThetaOptimize(max_systems, r1, r2, theta_min, theta_max, steps):
     for (i, j) in enumerate(tvals):
         solutions[i,:] = mSequenceOptimize(max_systems, r1, r2, j)
     return [tvals, solutions]
-
-def plotScanThetaOptimize(max_systems, r1, r2, theta_min=1.0E-30, theta_max=180, steps=100):
-    """
-    Plots theta parameter scan for optimization problem
-    """
-    tvals, x = scanThetaOptimize(max_systems, r1, r2, theta_min, theta_max, steps)
-    for i in range(x.shape[1]):
-        for j in range(x.shape[0]):
-            plt.scatter(tvals[j], x[j,i], c='black', s=.5)

@@ -29,32 +29,28 @@ def setUpN2QubitSystems(n, r1, r2, theta):
             B = np.kron(B, B_not)
     return (A, B)
 
-def qChernoffInformation(r1, r2, theta, s):
+def qChernoffInformation(r1, r2, theta, s=None):
     """
-    Returns unminimized variety of q for qubit. chernoff info as derived by Calsamiglia et al
+    Returns qcb for qubit Chernoff info as derived by Calsamiglia et al
 
     In the case of r1=r2, this expression is minimized when s = 1/2
     """
     lambda_0 = (1 + r1) / 2
     lambda_1 = (1 + r2) / 2
+    if r1 == r2:
+        return chernoffDivergence(lambda_0, lambda_1, theta, 1/2)
+    else:
+        svals = np.linspace(0, 1, 10000)
+        return np.min(chernoffDivergence(lambda_0, lambda_1, theta, svals))
+    if s != None:
+        s = sympy.Symbol('s')
+        return chernoffDivergence(lambda_0, lambda_1, theta, s)
+
+def chernoffDivergence(lambda_0, lambda_1, theta, s):
     return ((lambda_0 ** s * lambda_1 ** (1 - s) +
             (1 - lambda_0) ** s * (1 - lambda_1) ** (1 - s)) * (np.cos(theta/2)) ** 2 +
             (lambda_0 ** s * (1 - lambda_1) ** (1 - s) +
             (1 - lambda_0) ** s * lambda_1 ** (1 - s)) * (np.sin(theta/2)) ** 2)
-
-def sDerivQChernoffInformation(r1=sympy.Symbol('r_1'), r2=sympy.Symbol('r_2'), theta=sympy.abc.theta, asUfunc = False):
-    """
-    Zeroth, first and second derivative expressions w.r.t. s of qChernoffInformation symbolically
-    """
-    s = sympy.Symbol('s')
-    info = qChernoffInformation(r1, r2, theta, s)
-    first = info.diff(s)
-    second = first.diff(s)
-    if asUfunc == False:
-        return [info, first, second] #Option to return SymPy Expressions
-    if asUfunc == True:
-        from sympy.utilities.autowrap import ufuncify
-        return [ufuncify([r1, r2, theta, s], info), ufuncify([r1, r2, theta, s], first), ufuncify([r1, r2, theta, s], second)]
 
 def scanFixedR1R2(ufunc, r1, r2, theta_steps=10, s_steps=1E4):
     """
