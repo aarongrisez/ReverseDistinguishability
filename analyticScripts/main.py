@@ -1,4 +1,5 @@
 import traceDistanceCVXOPT as opt
+from tempfile import TemporaryFile
 import numpy as np
 
 def setUpParameterSpace(r_min=.1, r_max=.9, r_steps=5, t_min=.1, t_max=359, t_steps=10, num_threads=4):
@@ -6,26 +7,26 @@ def setUpParameterSpace(r_min=.1, r_max=.9, r_steps=5, t_min=.1, t_max=359, t_st
     Creates and partitions parameter space
     """
     parameter_points = r_steps * t_steps #Total number of points in parameter space to be tested
-    threads = 
     pp_per_thread = parameter_points / n #Total number of parameter points for each thread
     rvals = np.linspace(r_min, r_max, r_steps)
     tvals = np.linspace(t_min, t_max, t_steps)
     parameters = np.meshgrid(rvals, tvals).reshape(-1, 2)
-    partition = partitionParameterSpace(parameters, n)
+    partition = partitionParameterSpace(parameters, num_threads, pp_per_thread)
     return partition
 
-def partitionParameterSpace(parameters, n, pp_per_thread):
+def partitionParameterSpace(parameters, num_threads, pp_per_thread):
     """
     Returns partitioned numpy array where the first index provides the thread number
     """
 
-def setUpFiles():
+def setUpFileSystem():
     """
     Creates folders
     """
+    DATA_PATH = './Data/'
+    LOG_PATH = './Log/'
 
-
-def setUpProcesses(parameters, n):
+def setUpProcesses(parameters, num_threads):
     """
     Sets up threads for running script
 
@@ -46,14 +47,18 @@ def calculate(params_tuple, depth):
     """
     Creates sequence of data; parameters passed as (r, theta)
     """
-    sequence = opt.mSequenceOptimizeLog(depth, params_tuple[0], params_tuple[0], params_tuple[1])
-    return (params[0], params[0], params[1], sequence)
+    sequence = np.zeros(depth + 3)
+    sequence[0:3] = np.array([params_tuple[0], params_tuple[0], params_tuple[1]])
+    sequence[4:depth+3] = opt.mSequenceOptimizeLog(depth, params_tuple[0], params_tuple[0], params_tuple[1])
+    return sequence
 
 def saveData(chunk):
     """
     Saves data in chunks
     """
-    print("Saving Chunk")
+    outfile = TemporaryFile()
+    #Write to log "saving Chunk", time, and system specs
+    #Save to file
 
 def execute(processes):
     """

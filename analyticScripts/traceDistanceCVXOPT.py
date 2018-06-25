@@ -15,15 +15,11 @@ def optimize(n, r1, r2, theta):
     zeros = np.matrix(np.zeros((dim, dim)))
     rho, sigma = utilities.setUpN2QubitSystems(n, r1, r2, theta)
     mem = psutil.virtual_memory()
-    print("States Generated. n = " + str(n) + ": " + str(mem.used) + " used, " + str(mem.available) + " available")
-    print("Time: " + time.asctime( time.localtime(time.time())))
     obj = cvx.Maximize(1/2 * cvx.trace(W))
     constraints = [rho - W >= 0, sigma - W >=0]
     mem = psutil.virtual_memory()
-    print("Constraints set. : " + str(mem.used) + " used, " + str(mem.available) + " available")
     p = cvx.Problem(obj, constraints) 
     mem = psutil.virtual_memory()
-    print("Problem set. : " + str(mem.used) + " used, " + str(mem.available) + " available")
     return p.solve()
 
 @nb.jit
@@ -36,9 +32,7 @@ def mSequenceOptimize(m, r1, r2, theta, l):
     sequence = np.zeros(m-1-l)
     for (j,i) in enumerate(range(1+l, m)):
         sequence[j] = optimize(i, r1, r2, theta)
-        print("Time: " + time.asctime( time.localtime(time.time())))
         mem = psutil.virtual_memory()
-        print("Optimum reached. : " + str(mem.used) + " used, " + str(mem.available) + " available")
     return sequence
 
 @nb.jit
