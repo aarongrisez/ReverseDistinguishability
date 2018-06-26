@@ -22,6 +22,10 @@ def partitionParameterSpace(parameters, num_threads, pp_per_thread):
     """
     Returns partitioned numpy array where the first index provides the thread number
     """
+    main_block_size = (num_threads - 1) * pp_per_thread #Calculates the main block size for the parameter space, 1 thread reserved for overflow
+    overflow = len(parameters) - main_block_size
+    print(parameters)
+    main_block = parameters[0:main_block_size].reshape(num_threads, pp_per_thread, 2)
     return parameters
 
 def setUpFileSystem():
@@ -34,7 +38,7 @@ def setUpProcesses(parameters, num_threads):
     """
     Sets up threads for running script
 
-    Takes the partitioned parameter space and the desired number of threads
+    Takes the partitioned parameter space and the desired number of threads, assigns each thread a segment of the parameter space
     """
     pass
 
