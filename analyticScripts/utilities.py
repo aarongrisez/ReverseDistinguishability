@@ -16,17 +16,23 @@ def setUp2Qubits(r1, r2, theta):
     return (A, B)
 
 @nb.jit
-def setUpN2QubitSystems(n, r1, r2, theta):
+def setUpN2QubitSystems(n, r1, r2, theta, m=0):
     """
     Creates density matrices for N copy pairs of qubits
     """
     A_not, B_not = setUp2Qubits(r1, r2, theta)
     A = A_not
     B = B_not
-    if n != 1:
+    zeroz = np.zeros((2,2))
+    zeroz[0,0] = 1
+    if n > 1:
         for i in range(n-1):
             A = np.kron(A, A_not)
             B = np.kron(B, B_not)
+    if m > n:
+        for i in range(m-n):
+            A = np.kron(zeroz, A)
+            B = np.kron(zeroz, B)
     return (A, B)
 
 def qChernoffInformation(r1, r2, theta, s=None):
@@ -46,12 +52,28 @@ def qChernoffInformation(r1, r2, theta, s=None):
         s = sympy.Symbol('s')
         return chernoffDivergence(lambda_0, lambda_1, theta, s)
 
-def chernoffDivergence(lambda_0, lambda_1, theta, s):
+def quantumChernoffInformation(lambda_0, lambda_1, theta, s):
+    """
+    Returns s-family of values of the Quantum Chernoff Information as derived by Calsamiglia et al. To find optimal qci, this expression must be minimized over s
+
+    Parameters:
+        -lambda_0: float, (0, 1)
+            positive eigenvalue of the first qubit in Bloch Representation (WLOG, rotated to be aligned with z-axis)
+        -lambda_1: float, (0, 1)
+            positive eigenvalue of the second qubit in Bloch Representation
+
+    Returns:
+        -float
+            Quantum Chernoff Information (qci) for the two qubits. In a hypothesis testing situation, the probability of error of discriminating
+            between the two qubit states decreases ~ exp(-n * min(qci)) where n is the number of tests and the min is taken over all s in [0, 1].
+
+            In general, s is a function of the lambdas and theta. For the case where lambda_0 = lambda_1, s = 1/2 achieves this minimum.
+    """
     return ((lambda_0 ** s * lambda_1 ** (1 - s) +
             (1 - lambda_0) ** s * (1 - lambda_1) ** (1 - s)) * (np.cos(theta/2)) ** 2 +
             (lambda_0 ** s * (1 - lambda_1) ** (1 - s) +
             (1 - lambda_0) ** s * lambda_1 ** (1 - s)) * (np.sin(theta/2)) ** 2)
-
+            
 def scanFixedR1R2(ufunc, r1, r2, theta_steps=10, s_steps=1E4):
     """
     Takes ufunc and fixed values of r1 and r2 to scan the theta parameter 

@@ -1,52 +1,59 @@
 import numpy as np
-import traceDistanceCVXOPT as opt
 import hashlib
 import os
 import logging
+import problem
 
-def workerFunction(filename, depth, DATA_PATH, i):
-    logging.info('Worker ' + str(i) + ' started on ' + filename)
-    a = loadParameters(filename)
-    if a.size == 0:
-        logging.info('Encountered empty param file, ignoring...') 
-    else:
-        process(a, depth, DATA_PATH, i)
-    os.remove(filename)
-    logging.info('Worker ' + str(i) + ' Done')
+class Worker():
 
-def loadParameters(filename):
-    return np.load(filename)
+    def __init__(self, depth=0, data_path='', worker_number=0, single_n=False):
+        self.depth = depth
+        self.data_path = data_path
+        self.wnum = worker_number
+        self.single_n = single_n
 
-def process(params_list, depth, DATA_PATH, l):
-    chunk = np.zeros(depth+3)
-    for j in params_list:
-        chunk[0] = j[0]
-        chunk[1] = j[0]
-        chunk[2] = j[1]
-        chunk[3:depth+3] = calculate(j, depth)
-        saveData(np.array(chunk), DATA_PATH, l)
+    def setParamFile(self, filename):
+        self.filename = filename
 
-def calculate(params_tuple, depth):
-    """
-    Creates sequence of data; parameters passed as (r, theta)
-    """
-    depth = depth
-    sequence = np.zeros(depth)
-    r = params_tuple[0]
-    t = params_tuple[1]
-    for a in range(1, depth + 1):
-        rho, sigma, p = opt.setUpProblem(2**a, r, r, t, a)
-        x = -1 / a * np.log(p.solve())
-        sequence[a - 1] = x
-    return sequence
+    def workFunction(self):
+        """
+        Creates a worker 
+        """
+        logging.info('Worker ' + str(self.wnum) + ' started on ' + self.filename)
+        self.loadParameters()
+        if self.params_list.size == 0:
+            logging.info('Encountered empty param file, ignoring...') 
+        else:
+            self.process()
+        os.remove(self.filename)
+        print('Finished param chunk')
+        logging.info('Worker ' + str(self.wnum) + ' Done, ready for new param file')
 
-def saveData(chunk, DATA_PATH, i):
-    """
-    Saves data in chunks
-    """
-    #Write to log "saving Chunk", time, and system spec
-    #Save to file
-    ID = hashlib.sha1()
-    ID.update(np.array2string(chunk).encode('utf-8'))
-    chunk_file = DATA_PATH + 'chunk' + '_' + ID.hexdigest() + '.npy'
-    np.save(chunk_file, chunk)
+    def loadParameters(self):
+        self.params_list = np.load(self.filename)
+
+    def process(self):
+        if self.single_n:
+            self.chunk = np.zeros(4)
+        else:
+            self.chunk = np.zeros(self.depth+3)
+        for j in self.params_list:
+            self.chunk[0] = j[0]
+            self.chunk[1] = j[0]
+            self.chunk[2] = j[1]
+            if self.single_n:
+                self.chunk[4] = problem.calculateSingleN(j, self.depth)
+            else:
+                self.chunk[3:self.depth+3] = problem.calculate(j, self.depth)
+            self.saveData()
+
+    def saveData(self):
+        """
+        Saves data in chunks
+        """
+        #Write to log "saving Chunk", time, and system spec
+        #Save to file
+        ID = hashlib.sha1()
+        ID.update(np.array2string(self.chunk).encode('utf-8'))
+        chunk_file = self.data_path + 'chunk' + '_' + ID.hexdigest() + '.npy'
+        np.save(chunk_file, self.chunk)
