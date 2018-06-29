@@ -1,5 +1,8 @@
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+plt.ioff()
 import glob
 import random
 from scipy.linalg import inv, sqrtm, logm
@@ -27,6 +30,7 @@ def compareQcbRqcb(chunk=None):
     ax = fig.add_subplot('111')
     ax.plot(sequence)
     ax.plot(rre)
+    ax.set_title('r = ' + str(r1) + ', t = ' + str(theta))
     ax.hlines(analytic, 0, sequence.size)
     return fig
 

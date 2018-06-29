@@ -6,33 +6,35 @@ import psutil
 import time
 
 @nb.jit
-def optimize(n, r1, r2, theta):
+def optimize(p):
     """
-    For a given qubit pair, optimize Tr(W) where rho-W>0 and sigma-W>0
+    Runs solver for cvxpy
     """
-    dim = 2 ** n
-    W = cvx.Variable((dim, dim), PSD=True)
-    zeros = np.matrix(np.zeros((dim, dim)))
-    rho, sigma = utilities.setUpN2QubitSystems(n, r1, r2, theta)
-    mem = psutil.virtual_memory()
+    return p.solve(warm_start=True)
+
+def setUpProblem(dim, r1, r2, theta):
+    W = cvx.Variable(shape=(dim, dim), PSD=True)
+    rho = cvx.Parameter(shape=(dim, dim), name='rho', PSD=True)
+    sigma = cvx.Parameter(shape=(dim, dim), name='sigma', PSD=True)
+    rho, sigma = utilities.setUpN2QubitSystems(1, r1, r2, theta, dim)
     obj = cvx.Maximize(1/2 * cvx.trace(W))
     constraints = [rho - W >= 0, sigma - W >=0]
-    mem = psutil.virtual_memory()
     p = cvx.Problem(obj, constraints) 
-    mem = psutil.virtual_memory()
-    return p.solve()
+    return (rho, sigma, p)
 
 @nb.jit
-def mSequenceOptimize(m, r1, r2, theta, l):
+def mSequenceOptimize(m, r1, r2, theta, l=0):
     """
     For a given qubit pair, get sequence of optimizations for n<=m
     Tested for m <= 9, runtime reasonable
     l is starting point
     """
     sequence = np.zeros(m-1-l)
+    dim = 2 ** m
+    rho, sigma, p = setUpProblem(dim, r1, r2, theta)
     for (j,i) in enumerate(range(1+l, m)):
-        sequence[j] = optimize(i, r1, r2, theta)
-        mem = psutil.virtual_memory()
+        rho, sigma = utilities.setUpN2QubitSystems(i, r1, r2, theta, m)
+        sequence[j] = optimize(p)
     return sequence
 
 @nb.jit
