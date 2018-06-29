@@ -1,2 +1,2 @@
-ipynb - >
-	Names: CamelCase
+* **Jupyter Notebooks**
+	* Naming: Use CamelCase
