@@ -1,11 +1,12 @@
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-plt.ioff()
+#plt.ioff()
 import glob
 import random
 from scipy.linalg import inv, sqrtm, logm
+from scipy.linalg import fractional_matrix_power as fmp
 
 DATA_PATH = './Data/'
 
@@ -25,14 +26,30 @@ def compareQcbRqcb(chunk=None):
     theta = array[2]
     sequence = array[3:array.size]
     analytic = qcb(r1, r2, theta)
-    rre = mrre(r1, r2, theta, sequence.size)
+    rre = mrreSequence(r1, r2, theta, sequence.size)
+    rre_opt = mrreOptimalDecomposition(r1, r2, theta)
     fig = plt.figure()
     ax = fig.add_subplot('111')
     ax.plot(sequence)
     ax.plot(rre)
     ax.set_title('r = ' + str(r1) + ', t = ' + str(theta))
     ax.hlines(analytic, 0, sequence.size)
+    ax.hlines(rre_opt, 0, sequence.size, colors='r')
     return fig
+
+def qcbOptimalDecomposition(r1, r2, theta, s=1):
+    """
+    Experimenting to find optimal reverse chernoff quantity
+    """
+    rho = fmp(np.matrix([[1/2, 0],[0, 1/2]]), s)
+    sigma = fmp(np.matrix([[1/2, 2 * r2 * np.sin(theta)],[2 * r2 * np.sin(theta), 1/2]]), s)
+    tau = fmp(np.matrix([[1 + 4 * r1 * np.cos(theta), 0],[0, 1 - 4 * r1 * np.cos(theta)]]), 1-s)
+    return np.trace(logm(np.matmul(tau, sigma, tau)))
+
+def forwardRelativeEntropy(rho1, rho2):
+    a = np.matmul(rho1, logm(rho1))
+    b = np.matmul(rho1, logm(rho2))
+    return np.trace(a - b)
 
 def qcb(r1, r2, theta, s=None):
     """
@@ -70,17 +87,17 @@ def quantumChernoffInformation(lambda_0, lambda_1, theta, s):
             (lambda_0 ** s * (1 - lambda_1) ** (1 - s) +
             (1 - lambda_0) ** s * lambda_1 ** (1 - s)) * (np.sin(theta/2)) ** 2)
             
-def mrre(r1, r2, theta, n):
+def mrreSequence(r1, r2, theta, n):
     """
     Returns Matsumoto's reverse relative entropy for sequences of pairs of states
     """
     sequence = np.zeros(n)
     for i in range(1, n+1):
         rho, sigma = setUpN2QubitSystems(i, r1, r2, theta, i)
-        sequence[i-1] = np.log(quantity(rho, sigma)) / i
+        sequence[i-1] = np.log(mrreQuantity(rho, sigma)) / i
     return sequence
 
-def quantity(rho1, rho2):
+def mrreQuantity(rho1, rho2):
     """
     For a given pair of qubit states, calculate Matsumoto's reverse relative entropy
     """
@@ -99,6 +116,12 @@ def setUpN2QubitSystems(n, r1, r2, theta, m=1):
     Creates density matrices for N copy pairs of qubits
     """
     A_not, B_not = setUp2Qubits(r1, r2, theta)
+    return tensorProduct(n, A_not, B_not, m)
+
+def tensorProduct(n, A_not, B_not, m):
+    """
+    Returns the nth tensor product of A_not and B_not
+    """
     A = A_not
     B = B_not
     zeroz = np.zeros((2,2))
