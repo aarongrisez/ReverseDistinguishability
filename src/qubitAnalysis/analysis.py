@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib
-#matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-#plt.ioff()
+plt.ioff()
 import glob
 import random
 from scipy.linalg import inv, sqrtm, logm
@@ -26,15 +26,15 @@ def compareQcbRqcb(chunk=None):
     theta = array[2]
     sequence = array[3:array.size]
     analytic = qcb(r1, r2, theta)
-    rre = mrreSequence(r1, r2, theta, sequence.size)
-    rre_opt = mrreOptimalDecomposition(r1, r2, theta)
+    rre1, rre2 = mrreSequence(r1, r2, theta, sequence.size)
     fig = plt.figure()
     ax = fig.add_subplot('111')
-    ax.plot(sequence)
-    ax.plot(rre)
+    ax.plot(sequence, c='b', label='tr(W) Optimization')
+    ax.plot(rre1, c='r', label='Matsumoto\'s Reverse Relative Entropy')
+    ax.plot(rre2, c='yellow', label='RRE under Tensor Product')
     ax.set_title('r = ' + str(r1) + ', t = ' + str(theta))
-    ax.hlines(analytic, 0, sequence.size)
-    ax.hlines(rre_opt, 0, sequence.size, colors='r')
+    ax.hlines(analytic, 0, sequence.size, label='Analytic QCB')
+    ax.legend()
     return fig
 
 def qcbOptimalDecomposition(r1, r2, theta, s=1):
@@ -86,16 +86,21 @@ def quantumChernoffInformation(lambda_0, lambda_1, theta, s):
             (1 - lambda_0) ** s * (1 - lambda_1) ** (1 - s)) * (np.cos(theta/2)) ** 2 +
             (lambda_0 ** s * (1 - lambda_1) ** (1 - s) +
             (1 - lambda_0) ** s * lambda_1 ** (1 - s)) * (np.sin(theta/2)) ** 2)
-            
+
 def mrreSequence(r1, r2, theta, n):
     """
     Returns Matsumoto's reverse relative entropy for sequences of pairs of states
     """
-    sequence = np.zeros(n)
+    sequence1 = np.zeros(n)
+    sequence2 = np.zeros(n)
     for i in range(1, n+1):
         rho, sigma = setUpN2QubitSystems(i, r1, r2, theta, i)
-        sequence[i-1] = np.log(mrreQuantity(rho, sigma)) / i
-    return sequence
+        rho2, sigma2 = setUp2Qubits(r1, r2, theta)
+        q = mrreQuantity(rho, sigma)
+        sequence1[i-1] = np.log(q) / i
+        qprime = mrreQuantity(rho2, sigma2)
+        sequence2[i-1] = np.log((i * qprime) ** (1 / i))
+    return sequence1, sequence2
 
 def mrreQuantity(rho1, rho2):
     """

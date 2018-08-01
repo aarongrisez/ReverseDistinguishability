@@ -3,6 +3,7 @@ import hashlib
 import os
 import logging
 import problem
+import json
 
 class Worker():
 
@@ -35,16 +36,23 @@ class Worker():
     def process(self):
         if self.single_n:
             self.chunk = np.zeros(4)
+            self.matrices = {}
         else:
             self.chunk = np.zeros(self.depth+3)
+            self.matrices = {}
         for j in self.params_list:
             self.chunk[0] = j[0]
             self.chunk[1] = j[0]
             self.chunk[2] = j[1]
+            self.matrices['r1']=j[0]
+            self.matrices['r2']=j[0]
+            self.matrices['theta']=j[1]
             if self.single_n:
                 self.chunk[4] = problem.calculateSingleN(j, self.depth)
             else:
-                self.chunk[3:self.depth+3] = problem.calculate(j, self.depth)
+                soln = problem.calculate(j, self.depth)
+                self.chunk[3:self.depth+3] = soln[0]
+                self.matrices['sequence'] = soln[1]
             self.saveData()
 
     def saveData(self):
@@ -55,5 +63,7 @@ class Worker():
         #Save to file
         ID = hashlib.sha1()
         ID.update(np.array2string(self.chunk).encode('utf-8'))
-        chunk_file = self.data_path + 'chunk' + '_' + ID.hexdigest() + '.npy'
-        np.save(chunk_file, self.chunk)
+        chunk_file = self.data_path + 'chunk' + '_' + ID.hexdigest()
+        np.save(chunk_file + '.npy', self.chunk)
+        with open(chunk_file + '.json', 'w') as jsonfile:
+            json.dump(self.matrices, jsonfile)

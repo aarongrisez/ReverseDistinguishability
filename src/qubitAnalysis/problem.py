@@ -9,21 +9,24 @@ def setUpProblem(dim, r1, r2, theta, m):
     obj = cvx.Maximize(1/2 * cvx.trace(W))
     rho, sigma = setUpN2QubitSystems(m, r1, r2, theta, m)
     constraints = [rho - W >> 0, sigma - W >>0]
-    p = cvx.Problem(obj, constraints) 
-    return (rho, sigma, p)
+    p = cvx.Problem(obj, constraints)
+    return (rho, sigma, p, W)
 
 def calculate(params_tuple, depth):
     """
     Creates sequence of data; parameters passed as (r, theta)
     """
     sequence = np.zeros(depth)
+    matrices = []
     r = params_tuple[0]
     t = params_tuple[1]
     for a in range(1, depth + 1):
-        rho, sigma, p = setUpProblem(2**a, r, r, t, a)
-        x = -1 / a * np.log(p.solve())
-        sequence[a - 1] = x
-    return sequence
+        rho, sigma, p , W= setUpProblem(2**a, r, r, t, a)
+        temp = 1 - p.solve()
+        x = -1 / a * np.log(temp)
+        sequence[a - 1] = x 
+        matrices.append(W.value.tolist())
+    return (sequence, matrices)
 
 def calculateSingleN(params_tuple, n):
     """
@@ -31,7 +34,7 @@ def calculateSingleN(params_tuple, n):
     """
     r = params_tuple[0]
     t = params_tuple[1]
-    rho, sigma, p = setUpProblem(2**a, r, r, t, a)
+    rho, sigma, p, W = setUpProblem(2**a, r, r, t, a)
     x = -1 / a * np.log(p.solve())
     return sequence
 
