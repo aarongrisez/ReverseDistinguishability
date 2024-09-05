@@ -26,3 +26,4 @@ Some example quantities that would have benefited from a concise accounting of a
 - Quantum Reverse Chernoff Bound
 - Quantum Reverse Relative Entropy
 - Matsumoto Quantity
+
